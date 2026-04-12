@@ -5,40 +5,93 @@
     xmlns:local="using:Sera.Pages"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:entities="using:Sera.Data.Entities"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
-    <Grid Padding="20">
-        <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
-            <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
-        </Grid.RowDefinitions>
-        
-        <TextBlock Text="Today's Tasks" FontWeight="SemiBold" FontSize="24" Margin="0,0,0,12"/>
-        
-        <ListView x:Name="TasksList" Grid.Row="1" SelectionMode="None">
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Padding="12,8">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="*"/>
-                            <ColumnDefinition Width="Auto"/>
-                        </Grid.ColumnDefinitions>
-                        <TextBlock Text="{Binding Title}" VerticalAlignment="Center" FontSize="16"/>
-                        <TextBlock Grid.Column="1" Text="{Binding Status}" 
-                                   Foreground="Gray" VerticalAlignment="Center" Margin="12,0,0,0"/>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-        
-        <StackPanel Grid.Row="2" Orientation="Horizontal" Spacing="8" Margin="0,16,0,0">
-            <TextBox x:Name="ChatInputBox" 
-                     PlaceholderText="e.g. Remind me to call mom tomorrow"
-                     Width="400" 
-                     KeyDown="ChatInputBox_KeyDown"/>
-            <Button x:Name="SendButton" Content="Send" Click="SendButton_Click" Style="{ThemeResource AccentButtonStyle}"/>
-        </StackPanel>
+    <Grid>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="2*"/>
+            <ColumnDefinition Width="1*"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Left: Tasks List -->
+        <Grid Padding="24" BorderBrush="{ThemeResource SystemControlForegroundBaseLowBrush}" BorderThickness="0,0,1,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
+            
+            <TextBlock Text="Today's Tasks" FontWeight="SemiBold" FontSize="28" Margin="0,0,0,16"/>
+            
+            <ListView x:Name="TasksList" Grid.Row="1" SelectionMode="None">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="entities:TaskInstance">
+                        <Grid Padding="12,8">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+                            
+                            <StackPanel VerticalAlignment="Center" Spacing="2">
+                                <TextBlock Text="{x:Bind Title}" FontSize="16" FontWeight="Medium"/>
+                                <TextBlock Text="{x:Bind DueDate.ToString()}" FontSize="12" Foreground="Gray"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button Content="&#xE73E;" FontFamily="Segoe MDL2 Assets" 
+                                        ToolTipService.ToolTip="Complete"
+                                        Click="CompleteTask_Click" 
+                                        Tag="{x:Bind}"
+                                        Padding="8,4" Background="Transparent" BorderThickness="0"/>
+                                <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" 
+                                        ToolTipService.ToolTip="Delete"
+                                        Click="DeleteTask_Click" 
+                                        Tag="{x:Bind}"
+                                        Padding="8,4" Background="Transparent" BorderThickness="0" Foreground="Red"/>
+                            </StackPanel>
+                        </Grid>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            
+            <StackPanel Grid.Row="2" Spacing="12" Margin="0,16,0,0">
+                <TextBlock x:Name="StatusLabel" Text="Sera is ready" FontSize="12" Foreground="Gray"/>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*"/>
+                        <ColumnDefinition Width="Auto"/>
+                    </Grid.ColumnDefinitions>
+                    <TextBox x:Name="ChatInputBox" 
+                             PlaceholderText="Tell Sera what to do..."
+                             KeyDown="ChatInputBox_KeyDown"/>
+                    <Button x:Name="SendButton" Grid.Column="1" Content="Send" 
+                            Click="SendButton_Click" Margin="8,0,0,0"
+                            Style="{ThemeResource AccentButtonStyle}"/>
+                </Grid>
+            </StackPanel>
+        </Grid>
+
+        <!-- Right: Conversation Pane (Stub) -->
+        <Grid Grid.Column="1" Background="{ThemeResource SystemControlBackgroundAltHighBrush}" Padding="24">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+            </Grid.RowDefinitions>
+            
+            <TextBlock Text="Conversation" FontWeight="SemiBold" FontSize="18" Margin="0,0,0,16"/>
+            
+            <ScrollViewer Grid.Row="1">
+                <StackPanel x:Name="ConversationHistory" Spacing="16">
+                    <!-- Stub Content -->
+                    <Border Background="{ThemeResource SystemControlBackgroundBaseLowBrush}" Padding="12" CornerRadius="8" HorizontalAlignment="Left">
+                        <TextBlock Text="Hello! I'm Sera. How can I help you manage your tasks today?" TextWrapping="Wrap" MaxWidth="250"/>
+                    </Border>
+                    
+                    <TextBlock Text="History will appear here..." HorizontalAlignment="Center" Foreground="Gray" Margin="0,20" FontSize="12"/>
+                </StackPanel>
+            </ScrollViewer>
+        </Grid>
     </Grid>
 </Page>
