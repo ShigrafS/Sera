@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
+    <TargetFramework>net8.0-windows10.0.19041.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
 
@@ -21,9 +21,9 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TaskSage.Core\TaskSage.Core.csproj" />
-    <ProjectReference Include="..\TaskSage.Services\TaskSage.Services.csproj" />
-    <ProjectReference Include="..\TaskSage.Data\TaskSage.Data.csproj" />
+    <ProjectReference Include="..\Sera.Core\Sera.Core.csproj" />
+    <ProjectReference Include="..\Sera.Services\Sera.Services.csproj" />
+    <ProjectReference Include="..\Sera.Data\Sera.Data.csproj" />
   </ItemGroup>
 
 </Project>

@@ -1,4 +1,4 @@
-namespace TaskSage.Tests;
+namespace Sera.Tests;
 
 public class UnitTest1
 {

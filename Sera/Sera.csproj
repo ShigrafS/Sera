@@ -3,7 +3,7 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows10.0.26100.0</TargetFramework>
     <TargetPlatformMinVersion>10.0.17763.0</TargetPlatformMinVersion>
-    <RootNamespace>TaskSage</RootNamespace>
+    <RootNamespace>Sera</RootNamespace>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <Platforms>x86;x64;ARM64</Platforms>
     <RuntimeIdentifiers>win-x86;win-x64;win-arm64</RuntimeIdentifiers>
@@ -39,14 +39,15 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" Version="*" />
     <PackageReference Include="Microsoft.WindowsAppSDK" Version="*" />
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TaskSage.Core\TaskSage.Core.csproj" />
-    <ProjectReference Include="..\TaskSage.Services\TaskSage.Services.csproj" />
-    <ProjectReference Include="..\TaskSage.Data\TaskSage.Data.csproj" />
+    <ProjectReference Include="..\Sera.Core\Sera.Core.csproj" />
+    <ProjectReference Include="..\Sera.Services\Sera.Services.csproj" />
+    <ProjectReference Include="..\Sera.Data\Sera.Data.csproj" />
   </ItemGroup>
 
   <!--
