@@ -1,75 +1,85 @@
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Input;
-using Sera.Services;
-using Sera.Services.Execution;
+using Microsoft.UI.Xaml.Navigation;
+using Windows.Security.Credentials;
+using Sera.Pages;
 
 namespace Sera;
 
 public sealed partial class MainWindow : Window
 {
-    // These would normally be constructor injected in App.xaml.cs via DI
-    // private readonly INvidiaInferenceService _aiService;
-    // private readonly IActionExecutor _executor;
-    
     public MainWindow()
     {
         this.InitializeComponent();
-        LoadTasksAsync();
     }
 
-    private async void LoadTasksAsync()
+    private void RootNavigationView_Loaded(object sender, RoutedEventArgs e)
     {
-        // Dummy load call
-        await Task.CompletedTask;
-        // using var db = new SeraDbContext();
-        // TasksList.ItemsSource = await db.Tasks.Where(t => t.Status == Data.Entities.TaskStatus.Pending).ToListAsync();
-    }
-
-    private void ChatInputBox_KeyDown(object sender, KeyRoutedEventArgs e)
-    {
-        if (e.Key == Windows.System.VirtualKey.Enter)
-        {
-            ProcessInput();
-        }
-    }
-
-    private void SendButton_Click(object sender, RoutedEventArgs e)
-    {
-        ProcessInput();
-    }
-
-    private async void ProcessInput()
-    {
-        var input = ChatInputBox.Text;
-        if (string.IsNullOrWhiteSpace(input)) return;
-        
-        ChatInputBox.IsEnabled = false;
-        SendButton.IsEnabled = false;
-
         try
         {
-            // Dummy logic to invoke the core loop
-            await Task.Delay(100); 
-            // var actions = await _aiService.ParseUserInputAsync(input, "some context");
-            // if (actions != null) {
-            //      await _executor.ExecuteAsync(actions.Actions);
-            // }
-            // LoadTasksAsync();
-            ChatInputBox.Text = string.Empty;
+            // Check if API key exists
+            if (!HasApiKey())
+            {
+                // Navigate to Settings and show notice
+                RootNavigationView.SelectedItem = RootNavigationView.SettingsItem;
+                NavigateToSettings(true);
+            }
+            else
+            {
+                // Navigate to Tasks by default
+                var tasksItem = RootNavigationView.MenuItems.OfType<NavigationViewItem>().FirstOrDefault(i => i.Tag?.ToString() == "tasks");
+                if (tasksItem != null)
+                {
+                    RootNavigationView.SelectedItem = tasksItem;
+                    ContentFrame.Navigate(typeof(TasksPage));
+                }
+            }
         }
         catch (Exception)
         {
-            // show error
+            // If something hangs during load, at least the window might show up blank
+            ContentFrame.Navigate(typeof(TasksPage));
         }
-        finally
+    }
+
+    private void RootNavigationView_ItemInvoked(NavigationView sender, NavigationViewItemInvokedEventArgs args)
+    {
+        if (args.IsSettingsInvoked)
         {
-            ChatInputBox.IsEnabled = true;
-            SendButton.IsEnabled = true;
-            ChatInputBox.Focus(FocusState.Programmatic);
+            NavigateToSettings(false);
+        }
+        else if (args.InvokedItemContainer is NavigationViewItem item)
+        {
+            var tag = item.Tag.ToString();
+            if (tag == "tasks")
+            {
+                ContentFrame.Navigate(typeof(TasksPage));
+            }
+        }
+    }
+
+    private void NavigateToSettings(bool showNotice)
+    {
+        ContentFrame.Navigate(typeof(SettingsPage));
+        if (showNotice && ContentFrame.Content is SettingsPage settingsPage)
+        {
+            settingsPage.ShowSetupNotice();
+        }
+    }
+
+    private bool HasApiKey()
+    {
+        try
+        {
+            var vault = new PasswordVault();
+            var credential = vault.Retrieve("SeraNvidia", "ApiKey");
+            return !string.IsNullOrEmpty(credential.UserName);
+        }
+        catch
+        {
+            return false;
         }
     }
 }
