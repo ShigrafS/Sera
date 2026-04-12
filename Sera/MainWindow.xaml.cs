@@ -24,6 +24,7 @@ public sealed partial class MainWindow : Window
     private async void LoadTasksAsync()
     {
         // Dummy load call
+        await Task.CompletedTask;
         // using var db = new SeraDbContext();
         // TasksList.ItemsSource = await db.Tasks.Where(t => t.Status == Data.Entities.TaskStatus.Pending).ToListAsync();
     }
@@ -52,6 +53,7 @@ public sealed partial class MainWindow : Window
         try
         {
             // Dummy logic to invoke the core loop
+            await Task.Delay(100); 
             // var actions = await _aiService.ParseUserInputAsync(input, "some context");
             // if (actions != null) {
             //      await _executor.ExecuteAsync(actions.Actions);
@@ -59,7 +61,7 @@ public sealed partial class MainWindow : Window
             // LoadTasksAsync();
             ChatInputBox.Text = string.Empty;
         }
-        catch (Exception ex)
+        catch (Exception)
         {
             // show error
         }
