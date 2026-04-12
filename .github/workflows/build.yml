@@ -1,0 +1,46 @@
+name: Build and Release
+
+on:
+  push:
+    branches: [ "main", "master" ]
+  pull_request:
+    branches: [ "main", "master" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Install .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: 8.0.x
+
+    - name: Add msbuild to PATH
+      uses: microsoft/setup-msbuild@v2
+
+    - name: Restore dependencies
+      run: dotnet restore Sera.sln
+
+    - name: Publish Sera
+      run: |
+        dotnet publish Sera/Sera.csproj `
+          -c Release `
+          -r win-x64 `
+          --self-contained true `
+          -p:PublishSingleFile=false `
+          -p:PublishReadyToRun=true `
+          -p:WindowsAppSDKSelfContained=true `
+          -o ${{ github.workspace }}/publish
+
+    - name: Upload Build Artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: Sera-AI-Secretary-win-x64
+        path: ${{ github.workspace }}/publish
