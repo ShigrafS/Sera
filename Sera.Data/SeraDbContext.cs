@@ -12,6 +12,7 @@ public class SeraDbContext : DbContext
     // Default constructor for EF Core tools
     public SeraDbContext()
     {
+        Database.EnsureCreated();
     }
 
     public SeraDbContext(DbContextOptions<SeraDbContext> options) : base(options)
