@@ -9,6 +9,48 @@
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
 
+    <Page.Resources>
+        <DataTemplate x:Key="TaskItemTemplate" x:DataType="entities:TaskInstance">
+            <Grid Padding="12,8">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+                
+                <StackPanel VerticalAlignment="Center" Spacing="2">
+                    <TextBlock Text="{x:Bind Title}" FontSize="16" FontWeight="Medium"
+                               TextDecorations="{x:Bind local:TasksPage.GetTextDecoration(Status)}"/>
+                    <TextBlock Text="{x:Bind DueDate.ToString()}" FontSize="12" Foreground="Gray"/>
+                </StackPanel>
+
+                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                    <Button Content="&#xE73E;" FontFamily="Segoe MDL2 Assets" 
+                            ToolTipService.ToolTip="Complete"
+                            Click="CompleteTask_Click" 
+                            Tag="{x:Bind}"
+                            Visibility="{x:Bind local:TasksPage.GetCompleteButtonVisibility(Status)}"
+                            Padding="8,4" Background="Transparent" BorderThickness="0"/>
+                    <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" 
+                            ToolTipService.ToolTip="Delete"
+                            Click="DeleteTask_Click" 
+                            Tag="{x:Bind}"
+                            Padding="8,4" Background="Transparent" BorderThickness="0" Foreground="Red"/>
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+
+        <DataTemplate x:Key="TaskGroupTemplate" x:DataType="local:TaskGroup">
+            <Expander Header="{x:Bind Header}" IsExpanded="{x:Bind IsExpanded}" 
+                      HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                      Margin="0,0,0,8">
+                <ListView ItemsSource="{x:Bind Tasks}" 
+                          ItemTemplate="{StaticResource TaskItemTemplate}"
+                          SelectionMode="None"
+                          Padding="0"/>
+            </Expander>
+        </DataTemplate>
+    </Page.Resources>
+
     <Grid>
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="2*"/>
@@ -29,38 +71,20 @@
                 <Button x:Name="ArchiveTab" Content="Archive" Click="Tab_Click" Style="{ThemeResource SubtleButtonStyle}" FontSize="20" Foreground="Gray"/>
             </StackPanel>
             
-            <ListView x:Name="TasksList" Grid.Row="1" SelectionMode="None">
-                <ListView.ItemTemplate>
-                    <DataTemplate x:DataType="entities:TaskInstance">
-                        <Grid Padding="12,8">
-                            <Grid.ColumnDefinitions>
-                                <ColumnDefinition Width="*"/>
-                                <ColumnDefinition Width="Auto"/>
-                            </Grid.ColumnDefinitions>
-                            
-                            <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="{x:Bind Title}" FontSize="16" FontWeight="Medium"
-                                           TextDecorations="{x:Bind local:TasksPage.GetTextDecoration(Status)}"/>
-                                <TextBlock Text="{x:Bind DueDate.ToString()}" FontSize="12" Foreground="Gray"/>
-                            </StackPanel>
+            <Grid Grid.Row="1">
+                <!-- Flat list for Today -->
+                <ListView x:Name="TasksList" 
+                          ItemsSource="{x:Bind _tasks}"
+                          ItemTemplate="{StaticResource TaskItemTemplate}"
+                          SelectionMode="None"
+                          Visibility="Visible"/>
 
-                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Content="&#xE73E;" FontFamily="Segoe MDL2 Assets" 
-                                        ToolTipService.ToolTip="Complete"
-                                        Click="CompleteTask_Click" 
-                                        Tag="{x:Bind}"
-                                        Visibility="{x:Bind local:TasksPage.GetCompleteButtonVisibility(Status)}"
-                                        Padding="8,4" Background="Transparent" BorderThickness="0"/>
-                                <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" 
-                                        ToolTipService.ToolTip="Delete"
-                                        Click="DeleteTask_Click" 
-                                        Tag="{x:Bind}"
-                                        Padding="8,4" Background="Transparent" BorderThickness="0" Foreground="Red"/>
-                            </StackPanel>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                <!-- Grouped list for Future/Archive -->
+                <ScrollViewer x:Name="GroupedTasksContainer" Visibility="Collapsed">
+                    <ItemsControl ItemsSource="{x:Bind _groupedTasks}"
+                                 ItemTemplate="{StaticResource TaskGroupTemplate}"/>
+                </ScrollViewer>
+            </Grid>
             
             <StackPanel Grid.Row="2" Spacing="12" Margin="0,16,0,0">
                 <TextBlock x:Name="StatusLabel" Text="Sera is ready" FontSize="12" Foreground="Gray"/>

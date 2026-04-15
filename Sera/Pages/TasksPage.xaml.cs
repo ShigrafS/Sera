@@ -15,12 +15,20 @@ using Sera.Services.Execution;
 
 namespace Sera.Pages;
 
+public class TaskGroup
+{
+    public string Header { get; set; } = string.Empty;
+    public ObservableCollection<TaskInstance> Tasks { get; set; } = new();
+    public bool IsExpanded { get; set; } = false;
+}
+
 public sealed partial class TasksPage : Page
 {
     private enum ViewTab { Today, Future, Archive }
     private ViewTab _currentTab = ViewTab.Today;
-    
+
     private readonly ObservableCollection<TaskInstance> _tasks = new();
+    private readonly ObservableCollection<TaskGroup> _groupedTasks = new();
     private readonly INvidiaInferenceService _aiService;
     private readonly IActionExecutor _executor;
     private readonly HttpClient _httpClient = new();
@@ -35,7 +43,7 @@ public sealed partial class TasksPage : Page
         _executor = new ActionExecutor(db);
         
         TasksList.ItemsSource = _tasks;
-        RefreshTasksAsync();
+        _ = RefreshTasksAsync();
     }
 
     private async Task RefreshTasksAsync()
@@ -50,31 +58,61 @@ public sealed partial class TasksPage : Page
             switch (_currentTab)
             {
                 case ViewTab.Today:
-                    // Today's tasks + Overdue pending tasks + Today's completed tasks
                     query = query.Where(t => 
                         t.DueDate == today || 
                         (t.Status == Data.Entities.TaskStatus.Pending && t.DueDate < today));
+                    
+                    var results = await query.OrderBy(t => t.DueDate).ToListAsync();
+                    _tasks.Clear();
+                    foreach (var t in results) _tasks.Add(t);
                     break;
+
                 case ViewTab.Future:
-                    query = query.Where(t => t.DueDate > today);
-                    break;
                 case ViewTab.Archive:
-                    // Only completed tasks from the past
-                    query = query.Where(t => t.Status == Data.Entities.TaskStatus.Completed && t.DueDate < today);
+                    if (_currentTab == ViewTab.Future)
+                        query = query.Where(t => t.DueDate > today);
+                    else
+                        query = query.Where(t => t.Status == Data.Entities.TaskStatus.Completed && t.DueDate < today);
+
+                    var groupedResults = await query.OrderBy(t => t.DueDate).ToListAsync();
+                    
+                    // Grouping logic
+                    var groups = groupedResults.GroupBy(t => t.DueDate)
+                        .Select(g => new TaskGroup 
+                        { 
+                            Header = FormatDateHeader(g.Key), 
+                            Tasks = new ObservableCollection<TaskInstance>(g) 
+                        }).ToList();
+
+                    // Expand the nearest date
+                    if (groups.Any())
+                    {
+                        if (_currentTab == ViewTab.Future) groups.First().IsExpanded = true;
+                        else groups.Last().IsExpanded = true; // Most recent for archive
+                    }
+
+                    _groupedTasks.Clear();
+                    foreach (var g in groups) _groupedTasks.Add(g);
                     break;
-            }
-
-            var results = await query.OrderBy(t => t.DueDate).ToListAsync();
-
-            _tasks.Clear();
-            foreach (var t in results)
-            {
-                _tasks.Add(t);
             }
         }
         catch (Exception ex)
         {
             StatusLabel.Text = $"Error loading tasks: {ex.Message}";
+        }
+    }
+    
+    private void UpdateViewVisibility()
+    {
+        if (_currentTab == ViewTab.Today)
+        {
+            TasksList.Visibility = Visibility.Visible;
+            GroupedTasksContainer.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            TasksList.Visibility = Visibility.Collapsed;
+            GroupedTasksContainer.Visibility = Visibility.Visible;
         }
     }
 
@@ -98,6 +136,7 @@ public sealed partial class TasksPage : Page
             btn.Foreground = (Brush)Application.Current.Resources["AccentAAFillColorDefaultBrush"];
             btn.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
 
+            UpdateViewVisibility();
             _ = RefreshTasksAsync();
         }
     }
@@ -127,7 +166,7 @@ public sealed partial class TasksPage : Page
         try
         {
             // Gather context for AI (titles of pending tasks)
-            var context = string.Join(", ", _tasks.Select(t => t.Title));
+            var context = string.Join(", ", _tasks.Concat(_groupedTasks.SelectMany(g => g.Tasks)).Select(t => t.Title));
             
             var actionList = await _aiService.ParseUserInputAsync(input, context);
             
@@ -242,5 +281,19 @@ public sealed partial class TasksPage : Page
     public static Windows.UI.Text.TextDecorations GetTextDecoration(Data.Entities.TaskStatus status)
     {
         return status == Data.Entities.TaskStatus.Completed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None;
+    }
+
+    private string FormatDateHeader(DateOnly date)
+    {
+        var today = DateOnly.FromDateTime(DateTime.Today);
+        if (date == today) return "Today";
+        if (date == today.AddDays(1)) return "Tomorrow";
+        if (date == today.AddDays(-1)) return "Yesterday";
+        
+        // Show day name for the next 6 days
+        var diff = (date.ToDateTime(TimeOnly.MinValue) - today.ToDateTime(TimeOnly.MinValue)).Days;
+        if (diff > 1 && diff < 7) return date.ToString("dddd");
+        
+        return date.ToString("MMMM dd, yyyy");
     }
 }
