@@ -17,6 +17,9 @@ namespace Sera.Pages;
 
 public sealed partial class TasksPage : Page
 {
+    private enum ViewTab { Today, Future, Archive }
+    private ViewTab _currentTab = ViewTab.Today;
+    
     private readonly ObservableCollection<TaskInstance> _tasks = new();
     private readonly INvidiaInferenceService _aiService;
     private readonly IActionExecutor _executor;
@@ -40,13 +43,31 @@ public sealed partial class TasksPage : Page
         try
         {
             using var db = new SeraDbContext();
-            var pendingTasks = await db.Tasks
-                .Where(t => t.Status == Data.Entities.TaskStatus.Pending)
-                .OrderBy(t => t.DueDate)
-                .ToListAsync();
+            var today = DateOnly.FromDateTime(DateTime.Today);
+            
+            IQueryable<TaskInstance> query = db.Tasks;
+
+            switch (_currentTab)
+            {
+                case ViewTab.Today:
+                    // Today's tasks + Overdue pending tasks + Today's completed tasks
+                    query = query.Where(t => 
+                        t.DueDate == today || 
+                        (t.Status == Data.Entities.TaskStatus.Pending && t.DueDate < today));
+                    break;
+                case ViewTab.Future:
+                    query = query.Where(t => t.DueDate > today);
+                    break;
+                case ViewTab.Archive:
+                    // Only completed tasks from the past
+                    query = query.Where(t => t.Status == Data.Entities.TaskStatus.Completed && t.DueDate < today);
+                    break;
+            }
+
+            var results = await query.OrderBy(t => t.DueDate).ToListAsync();
 
             _tasks.Clear();
-            foreach (var t in pendingTasks)
+            foreach (var t in results)
             {
                 _tasks.Add(t);
             }
@@ -54,6 +75,30 @@ public sealed partial class TasksPage : Page
         catch (Exception ex)
         {
             StatusLabel.Text = $"Error loading tasks: {ex.Message}";
+        }
+    }
+
+    private void Tab_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is Button btn)
+        {
+            // Reset styles
+            TodayTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
+            FutureTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
+            ArchiveTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
+            
+            TodayTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
+            FutureTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
+            ArchiveTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
+
+            if (btn == TodayTab) _currentTab = ViewTab.Today;
+            else if (btn == FutureTab) _currentTab = ViewTab.Future;
+            else if (btn == ArchiveTab) _currentTab = ViewTab.Archive;
+
+            btn.Foreground = (Brush)Application.Current.Resources["AccentAAFillColorDefaultBrush"];
+            btn.FontWeight = Microsoft.UI.Text.FontWeights.SemiBold;
+
+            _ = RefreshTasksAsync();
         }
     }
 
@@ -187,5 +232,15 @@ public sealed partial class TasksPage : Page
         ConversationHistory.Children.Add(bubble);
         
         // Auto-scroll to bottom would be nice, but simple for now
+    }
+
+    public static Visibility GetCompleteButtonVisibility(Data.Entities.TaskStatus status)
+    {
+        return status == Data.Entities.TaskStatus.Pending ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public static Windows.UI.Text.TextDecorations GetTextDecoration(Data.Entities.TaskStatus status)
+    {
+        return status == Data.Entities.TaskStatus.Completed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None;
     }
 }

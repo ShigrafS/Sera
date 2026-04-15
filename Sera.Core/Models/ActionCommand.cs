@@ -19,8 +19,8 @@ public class ActionCommand
     [JsonPropertyName("title")]
     public string? Title { get; set; }
 
-    [JsonPropertyName("newDueDate")]
-    public string? NewDueDate { get; set; }
+    [JsonPropertyName("dueDate")]
+    public string? DueDate { get; set; }
 
     [JsonPropertyName("recurrence")]
     public RecurrenceData? Recurrence { get; set; }

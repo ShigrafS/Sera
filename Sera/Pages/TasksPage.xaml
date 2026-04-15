@@ -23,7 +23,11 @@
                 <RowDefinition Height="Auto"/>
             </Grid.RowDefinitions>
             
-            <TextBlock Text="Today's Tasks" FontWeight="SemiBold" FontSize="28" Margin="0,0,0,16"/>
+            <StackPanel Orientation="Horizontal" Spacing="24" Margin="0,0,0,16">
+                <Button x:Name="TodayTab" Content="Today" Click="Tab_Click" Style="{ThemeResource SubtleButtonStyle}" FontWeight="SemiBold" FontSize="20"/>
+                <Button x:Name="FutureTab" Content="Future" Click="Tab_Click" Style="{ThemeResource SubtleButtonStyle}" FontSize="20" Foreground="Gray"/>
+                <Button x:Name="ArchiveTab" Content="Archive" Click="Tab_Click" Style="{ThemeResource SubtleButtonStyle}" FontSize="20" Foreground="Gray"/>
+            </StackPanel>
             
             <ListView x:Name="TasksList" Grid.Row="1" SelectionMode="None">
                 <ListView.ItemTemplate>
@@ -35,7 +39,8 @@
                             </Grid.ColumnDefinitions>
                             
                             <StackPanel VerticalAlignment="Center" Spacing="2">
-                                <TextBlock Text="{x:Bind Title}" FontSize="16" FontWeight="Medium"/>
+                                <TextBlock Text="{x:Bind Title}" FontSize="16" FontWeight="Medium"
+                                           TextDecorations="{x:Bind local:TasksPage.GetTextDecoration(Status)}"/>
                                 <TextBlock Text="{x:Bind DueDate.ToString()}" FontSize="12" Foreground="Gray"/>
                             </StackPanel>
 
@@ -44,6 +49,7 @@
                                         ToolTipService.ToolTip="Complete"
                                         Click="CompleteTask_Click" 
                                         Tag="{x:Bind}"
+                                        Visibility="{x:Bind local:TasksPage.GetCompleteButtonVisibility(Status)}"
                                         Padding="8,4" Background="Transparent" BorderThickness="0"/>
                                 <Button Content="&#xE74D;" FontFamily="Segoe MDL2 Assets" 
                                         ToolTipService.ToolTip="Delete"

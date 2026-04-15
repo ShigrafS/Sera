@@ -43,7 +43,7 @@ public class ActionExecutor : IActionExecutor
                     var newTask = new TaskInstance
                     {
                         Title = act.Title ?? "Untitled Task",
-                        DueDate = ParseDate(act.NewDueDate) ?? DateOnly.FromDateTime(DateTime.Now),
+                        DueDate = ParseDate(act.DueDate) ?? DateOnly.FromDateTime(DateTime.Now), // resolver resolved this
                         CreatedAt = DateTimeOffset.Now,
                         Status = Data.Entities.TaskStatus.Pending
                     };
@@ -71,7 +71,7 @@ public class ActionExecutor : IActionExecutor
                     }
                     else if (act.Action == "reschedule_task")
                     {
-                        var updatedDate = ParseDate(act.NewDueDate);
+                        var updatedDate = ParseDate(act.DueDate);
                         if (updatedDate.HasValue) matchedTask.DueDate = updatedDate.Value;
                     }
                     else if (act.Action == "skip_task")
@@ -121,7 +121,10 @@ public class ActionExecutor : IActionExecutor
     private DateOnly? ParseDate(string? dateStr)
     {
         if (string.IsNullOrWhiteSpace(dateStr)) return null;
+        
+        // Human fix: LLM sometimes gives YYYY-MM-DD
         if (DateOnly.TryParse(dateStr, out var parsed)) return parsed;
+        
         return null;
     }
 }

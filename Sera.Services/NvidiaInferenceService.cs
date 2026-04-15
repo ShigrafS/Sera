@@ -54,20 +54,23 @@ public class NvidiaInferenceService : INvidiaInferenceService
             throw new Exception("NVIDIA API Key not configured. Please set it in Settings.");
         }
 
-        var systemPrompt = @"You are a task extraction engine. You receive user intent and extract deterministic JSON actions.
+        var systemPrompt = $@"You are a task extraction engine. You receive user intent and extract deterministic JSON actions.
+The current date is {DateTime.Now:yyyy-MM-dd}.
+Use this date to resolve relative time references like 'tomorrow', 'next week', etc.
+
 Output STRICTLY a JSON object with this schema:
-{
+{{
   ""actions"": [
-    {
+    {{
       ""action"": ""add_task"" | ""complete_task"" | ""delete_task"" | ""reschedule_task"" | ""skip_task"" | ""create_recurring_task"" | ""clarify"",
       ""task_ref"": ""<name of task if modifying existing>"",
       ""title"": ""<title if new>"",
-      ""newDueDate"": ""<yyyy-MM-dd if rescheduling>"",
-      ""recurrence"": { ""frequency"": ""daily|weekly"", ""interval"": 1, ""days"": [] },
+      ""dueDate"": ""<yyyy-MM-dd>"",
+      ""recurrence"": {{ ""frequency"": ""daily|weekly"", ""interval"": 1, ""days"": [] }},
       ""question"": ""<question if clarify>""
-    }
+    }}
   ]
-}
+}}
 If unclear, output action: clarify and question.";
 
         var requestBody = new
