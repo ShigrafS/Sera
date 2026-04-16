@@ -6,6 +6,9 @@ public class ActionList
 {
     [JsonPropertyName("actions")]
     public List<ActionCommand> Actions { get; set; } = new();
+
+    [JsonPropertyName("message")]
+    public string Message { get; set; } = string.Empty;
 }
 
 public class ActionCommand
