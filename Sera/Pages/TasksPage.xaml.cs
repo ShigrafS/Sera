@@ -2,16 +2,22 @@ using System;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Net.Http;
+using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
-using Microsoft.EntityFrameworkCore;
 using Sera.Data;
-using Sera.Data.Entities;
 using Sera.Services;
 using Sera.Services.Execution;
+using Sera.Core.Models;
+using Sera.Controls;
+using TaskStatus = Sera.Data.Entities.TaskStatus;
+using TaskInstance = Sera.Data.Entities.TaskInstance;
+using Conversation = Sera.Data.Entities.Conversation;
+using ChatMessage = Sera.Data.Entities.ChatMessage;
 
 namespace Sera.Pages;
 
@@ -29,39 +35,103 @@ public sealed partial class TasksPage : Page
 
     private readonly ObservableCollection<TaskInstance> _tasks = new();
     private readonly ObservableCollection<TaskGroup> _groupedTasks = new();
-    private readonly INvidiaInferenceService _aiService;
+    private readonly ObservableCollection<Conversation> _conversations = new();
+    private readonly IStreamingInferenceService _streamingService;
     private readonly IActionExecutor _executor;
     private readonly HttpClient _httpClient = new();
+    private readonly SeraDbContext _db;
+
+    private Conversation? _currentConversation;
+    private CancellationTokenSource? _streamingCts;
 
     public TasksPage()
     {
         this.InitializeComponent();
-        
-        // Manual instantiation (Pragmatic approach)
-        var db = new SeraDbContext();
-        _aiService = new NvidiaInferenceService(_httpClient, db);
-        _executor = new ActionExecutor(db);
-        
+
+        _db = new SeraDbContext();
+        _streamingService = new NvidiaStreamingInferenceService(_httpClient, _db);
+        _executor = new ActionExecutor(_db);
+
         TasksList.ItemsSource = _tasks;
-        _ = RefreshTasksAsync();
+        ConversationsList.ItemsSource = _conversations;
+
+        _ = InitializeAsync();
+    }
+
+    private async Task InitializeAsync()
+    {
+        await LoadConversationsAsync();
+        await RefreshTasksAsync();
+    }
+
+    private async Task LoadConversationsAsync()
+    {
+        var conversations = await _db.Conversations
+            .OrderByDescending(c => c.UpdatedAt)
+            .ToListAsync();
+
+        _conversations.Clear();
+        foreach (var c in conversations)
+        {
+            _conversations.Add(c);
+        }
+
+        if (_conversations.Any())
+        {
+            ConversationsList.SelectedIndex = 0;
+        }
+        else
+        {
+            await CreateNewConversationAsync();
+        }
+    }
+
+    private async Task CreateNewConversationAsync()
+    {
+        var conversation = new Conversation
+        {
+            Title = "New Chat",
+            CreatedAt = DateTimeOffset.Now,
+            UpdatedAt = DateTimeOffset.Now
+        };
+
+        _db.Conversations.Add(conversation);
+        await _db.SaveChangesAsync();
+
+        _conversations.Insert(0, conversation);
+        ConversationsList.SelectedIndex = 0;
+    }
+
+    private async Task LoadConversationMessagesAsync(int conversationId)
+    {
+        var messages = await _db.ChatMessages
+            .Where(m => m.ConversationId == conversationId)
+            .OrderBy(m => m.Timestamp)
+            .ToListAsync();
+
+        ConversationHistory.Children.Clear();
+
+        foreach (var msg in messages)
+        {
+            AddMessageBubble(msg.Content, msg.Role == "user");
+        }
     }
 
     private async Task RefreshTasksAsync()
     {
         try
         {
-            using var db = new SeraDbContext();
             var today = DateOnly.FromDateTime(DateTime.Today);
-            
-            IQueryable<TaskInstance> query = db.Tasks;
+
+            IQueryable<TaskInstance> query = _db.Tasks;
 
             switch (_currentTab)
             {
                 case ViewTab.Today:
-                    query = query.Where(t => 
-                        t.DueDate == today || 
-                        (t.Status == Data.Entities.TaskStatus.Pending && t.DueDate < today));
-                    
+                    query = query.Where(t =>
+                        t.DueDate == today ||
+                        (t.Status == TaskStatus.Pending && t.DueDate < today));
+
                     var results = await query.OrderBy(t => t.DueDate).ToListAsync();
                     _tasks.Clear();
                     foreach (var t in results) _tasks.Add(t);
@@ -72,23 +142,21 @@ public sealed partial class TasksPage : Page
                     if (_currentTab == ViewTab.Future)
                         query = query.Where(t => t.DueDate > today);
                     else
-                        query = query.Where(t => t.Status == Data.Entities.TaskStatus.Completed && t.DueDate < today);
+                        query = query.Where(t => t.Status == TaskStatus.Completed && t.DueDate < today);
 
                     var groupedResults = await query.OrderBy(t => t.DueDate).ToListAsync();
-                    
-                    // Grouping logic
+
                     var groups = groupedResults.GroupBy(t => t.DueDate)
-                        .Select(g => new TaskGroup 
-                        { 
-                            Header = FormatDateHeader(g.Key), 
-                            Tasks = new ObservableCollection<TaskInstance>(g) 
+                        .Select(g => new TaskGroup
+                        {
+                            Header = FormatDateHeader(g.Key),
+                            Tasks = new ObservableCollection<TaskInstance>(g)
                         }).ToList();
 
-                    // Expand the nearest date
                     if (groups.Any())
                     {
                         if (_currentTab == ViewTab.Future) groups.First().IsExpanded = true;
-                        else groups.Last().IsExpanded = true; // Most recent for archive
+                        else groups.Last().IsExpanded = true;
                     }
 
                     _groupedTasks.Clear();
@@ -101,7 +169,7 @@ public sealed partial class TasksPage : Page
             StatusLabel.Text = $"Error loading tasks: {ex.Message}";
         }
     }
-    
+
     private void UpdateViewVisibility()
     {
         if (_currentTab == ViewTab.Today)
@@ -120,11 +188,10 @@ public sealed partial class TasksPage : Page
     {
         if (sender is Button btn)
         {
-            // Reset styles
             TodayTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
             FutureTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
             ArchiveTab.Foreground = new SolidColorBrush(Windows.UI.Color.FromArgb(255, 128, 128, 128));
-            
+
             TodayTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
             FutureTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
             ArchiveTab.FontWeight = Microsoft.UI.Text.FontWeights.Normal;
@@ -141,63 +208,184 @@ public sealed partial class TasksPage : Page
         }
     }
 
+    private async void NewConversation_Click(object sender, RoutedEventArgs e)
+    {
+        await CreateNewConversationAsync();
+    }
+
+    private async void ConversationsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (ConversationsList.SelectedItem is Conversation conversation)
+        {
+            _currentConversation = conversation;
+            ConversationTitle.Text = conversation.Title;
+            await LoadConversationMessagesAsync(conversation.Id);
+        }
+    }
+
     private void ChatInputBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
-            ProcessInput();
+            _ = ProcessInputAsync();
         }
     }
 
     private void SendButton_Click(object sender, RoutedEventArgs e)
     {
-        ProcessInput();
+        _ = ProcessInputAsync();
     }
 
-    private async void ProcessInput()
+    private async Task ProcessInputAsync()
     {
-        var input = ChatInputBox.Text;
-        if (string.IsNullOrWhiteSpace(input)) return;
+        var input = ChatInputBox.Text.Trim();
+        if (string.IsNullOrWhiteSpace(input) || _currentConversation == null) return;
 
         SetUiLoading(true);
+        ChatInputBox.Text = string.Empty;
+
+        AddMessageBubble(input, true);
+        await SaveMessageAsync(_currentConversation.Id, "user", input);
+
+        var userMessage = new ChatMessage
+        {
+            ConversationId = _currentConversation.Id,
+            Role = "user",
+            Content = input,
+            Timestamp = DateTimeOffset.Now
+        };
+
+        var assistantBubble = CreateAssistantBubble();
+        ConversationHistory.Children.Add(assistantBubble);
+
+        var streamingTextBlock = new StreamingTextBlock
+        {
+            IsStreaming = true
+        };
+
+        var bubbleContent = assistantBubble.Child as StackPanel;
+        bubbleContent?.Children.Add(streamingTextBlock);
+
         StatusLabel.Text = "Sera is thinking...";
-        AddConversationBubble(input, true);
 
         try
         {
-            // Gather context for AI (titles of pending tasks)
             var context = string.Join(", ", _tasks.Concat(_groupedTasks.SelectMany(g => g.Tasks)).Select(t => t.Title));
-            
-            var actionList = await _aiService.ParseUserInputAsync(input, context);
-            
-            if (actionList == null || actionList.Actions == null || !actionList.Actions.Any())
+            var history = await _db.ChatMessages
+                .Where(m => m.ConversationId == _currentConversation.Id)
+                .OrderBy(m => m.Timestamp)
+                .ToListAsync();
+
+            _streamingCts = new CancellationTokenSource();
+            ActionList? finalResponse = null;
+
+            await foreach (var chunk in _streamingService.StreamResponseAsync(input, context, history, _streamingCts.Token))
             {
-                AddConversationBubble("I couldn't quite understand that. Could you try rephrasing?", false);
-                return;
+                if (chunk.IsComplete && chunk.ParsedResponse != null)
+                {
+                    finalResponse = chunk.ParsedResponse;
+                }
+                else if (!string.IsNullOrEmpty(chunk.Token))
+                {
+                    streamingTextBlock.AppendText(chunk.Token);
+                }
             }
 
-            var result = await _executor.ExecuteAsync(actionList.Actions);
-            
-            if (!result.Success && !string.IsNullOrEmpty(result.ClarificationQuestion))
+            if (finalResponse != null)
             {
-                AddConversationBubble(result.ClarificationQuestion, false);
+                if (!string.IsNullOrEmpty(finalResponse.Message))
+                {
+                    streamingTextBlock.Text = finalResponse.Message;
+                }
+
+                await SaveMessageAsync(_currentConversation.Id, "assistant", finalResponse.Message);
+
+                if (finalResponse.Actions.Any())
+                {
+                    var result = await _executor.ExecuteAsync(finalResponse.Actions);
+                    if (result.Success)
+                    {
+                        await RefreshTasksAsync();
+                        StatusLabel.Text = "Updated!";
+                    }
+                    else if (!string.IsNullOrEmpty(result.ClarificationQuestion))
+                    {
+                        streamingTextBlock.Text = result.ClarificationQuestion;
+                    }
+                }
             }
-            else
-            {
-                await RefreshTasksAsync();
-                StatusLabel.Text = "Updated!";
-                ChatInputBox.Text = string.Empty;
-            }
+
+            _currentConversation.UpdatedAt = DateTimeOffset.Now;
+            await _db.SaveChangesAsync();
+        }
+        catch (OperationCanceledException)
+        {
+            StatusLabel.Text = "Cancelled";
         }
         catch (Exception ex)
         {
             StatusLabel.Text = "Something went wrong.";
-            AddConversationBubble($"Error: {ex.Message}", false);
+            streamingTextBlock.Text = $"Error: {ex.Message}";
         }
         finally
         {
+            streamingTextBlock.IsStreaming = false;
             SetUiLoading(false);
+            _streamingCts?.Dispose();
+            _streamingCts = null;
         }
+    }
+
+    private Border CreateAssistantBubble()
+    {
+        return new Border
+        {
+            Background = (Brush)Application.Current.Resources["SystemControlBackgroundBaseLowBrush"],
+            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(8),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = new StackPanel()
+        };
+    }
+
+    private void AddMessageBubble(string text, bool isUser)
+    {
+        var bubble = new Border
+        {
+            Background = (Brush)Application.Current.Resources[isUser ? "AccentAAFillColorDefaultBrush" : "SystemControlBackgroundBaseLowBrush"],
+            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(8),
+            HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
+            Child = new TextBlock
+            {
+                Text = text,
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 280,
+                Foreground = isUser ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)) : (Brush)Application.Current.Resources["DefaultTextForegroundThemeBrush"]
+            }
+        };
+        ConversationHistory.Children.Add(bubble);
+        ScrollConversationToBottom();
+    }
+
+    private void ScrollConversationToBottom()
+    {
+        ConversationScrollViewer.UpdateLayout();
+        ConversationScrollViewer.ScrollToVerticalOffset(ConversationScrollViewer.ScrollableHeight);
+    }
+
+    private async Task SaveMessageAsync(int conversationId, string role, string content)
+    {
+        var message = new ChatMessage
+        {
+            ConversationId = conversationId,
+            Role = role,
+            Content = content,
+            Timestamp = DateTimeOffset.Now
+        };
+
+        _db.ChatMessages.Add(message);
+        await _db.SaveChangesAsync();
     }
 
     private async void CompleteTask_Click(object sender, RoutedEventArgs e)
@@ -206,13 +394,12 @@ public sealed partial class TasksPage : Page
         {
             try
             {
-                using var db = new SeraDbContext();
-                var dbTask = await db.Tasks.FindAsync(task.Id);
+                var dbTask = await _db.Tasks.FindAsync(task.Id);
                 if (dbTask != null)
                 {
-                    dbTask.Status = Data.Entities.TaskStatus.Completed;
+                    dbTask.Status = TaskStatus.Completed;
                     dbTask.CompletedAt = DateTimeOffset.Now;
-                    await db.SaveChangesAsync();
+                    await _db.SaveChangesAsync();
                     await RefreshTasksAsync();
                 }
             }
@@ -229,12 +416,11 @@ public sealed partial class TasksPage : Page
         {
             try
             {
-                using var db = new SeraDbContext();
-                var dbTask = await db.Tasks.FindAsync(task.Id);
+                var dbTask = await _db.Tasks.FindAsync(task.Id);
                 if (dbTask != null)
                 {
-                    db.Tasks.Remove(dbTask);
-                    await db.SaveChangesAsync();
+                    _db.Tasks.Remove(dbTask);
+                    await _db.SaveChangesAsync();
                     await RefreshTasksAsync();
                 }
             }
@@ -252,25 +438,9 @@ public sealed partial class TasksPage : Page
         if (!isLoading) ChatInputBox.Focus(FocusState.Programmatic);
     }
 
-    private void AddConversationBubble(string text, bool isUser)
+    public static HorizontalAlignment GetMessageAlignment(string role)
     {
-        var bubble = new Border
-        {
-            Background = (Brush)Application.Current.Resources[isUser ? "AccentAAFillColorDefaultBrush" : "SystemControlBackgroundBaseLowBrush"],
-            Padding = new Thickness(12),
-            CornerRadius = new CornerRadius(8),
-            HorizontalAlignment = isUser ? HorizontalAlignment.Right : HorizontalAlignment.Left,
-            Child = new TextBlock 
-            { 
-                Text = text, 
-                TextWrapping = TextWrapping.Wrap, 
-                MaxWidth = 250,
-                Foreground = isUser ? new SolidColorBrush(Windows.UI.Color.FromArgb(255, 255, 255, 255)) : (Brush)Application.Current.Resources["DefaultTextForegroundThemeBrush"]
-            }
-        };
-        ConversationHistory.Children.Add(bubble);
-        
-        // Auto-scroll to bottom would be nice, but simple for now
+        return role == "user" ? HorizontalAlignment.Right : HorizontalAlignment.Left;
     }
 
     public static Visibility GetCompleteButtonVisibility(Data.Entities.TaskStatus status)
@@ -289,11 +459,10 @@ public sealed partial class TasksPage : Page
         if (date == today) return "Today";
         if (date == today.AddDays(1)) return "Tomorrow";
         if (date == today.AddDays(-1)) return "Yesterday";
-        
-        // Show day name for the next 6 days
+
         var diff = (date.ToDateTime(TimeOnly.MinValue) - today.ToDateTime(TimeOnly.MinValue)).Days;
         if (diff > 1 && diff < 7) return date.ToString("dddd");
-        
+
         return date.ToString("MMMM dd, yyyy");
     }
 }
