@@ -47,8 +47,27 @@ public class RecurrenceRule
 public class AppSettings
 {
     public int Id { get; set; } = 1; // Fixed id for singleton settings
-    public string? NvidiaApiKey { get; set; } 
+    public string? NvidiaApiKey { get; set; }
     public string SelectedModel { get; set; } = "meta/llama-3.1-70b-instruct";
     public string BaseUrl { get; set; } = "https://integrate.api.nvidia.com/v1";
     public DateTimeOffset LastUpdated { get; set; }
+}
+
+public class Conversation
+{
+    public int Id { get; set; }
+    public string Title { get; set; } = "New Chat";
+    public DateTimeOffset CreatedAt { get; set; }
+    public DateTimeOffset UpdatedAt { get; set; }
+    public ICollection<ChatMessage> Messages { get; set; } = new List<ChatMessage>();
+}
+
+public class ChatMessage
+{
+    public int Id { get; set; }
+    public int ConversationId { get; set; }
+    public Conversation Conversation { get; set; } = null!;
+    public string Role { get; set; } = "user";
+    public string Content { get; set; } = string.Empty;
+    public DateTimeOffset Timestamp { get; set; }
 }

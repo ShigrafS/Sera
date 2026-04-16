@@ -8,6 +8,8 @@ public class SeraDbContext : DbContext
     public DbSet<TaskInstance> Tasks { get; set; } = null!;
     public DbSet<RecurringTemplate> Templates { get; set; } = null!;
     public DbSet<AppSettings> Settings { get; set; } = null!;
+    public DbSet<Conversation> Conversations { get; set; } = null!;
+    public DbSet<ChatMessage> ChatMessages { get; set; } = null!;
     
     // Default constructor for EF Core tools
     public SeraDbContext()
@@ -29,14 +31,23 @@ public class SeraDbContext : DbContext
         }
     }
 
-    protected override void OnModelCreating(ModelBuilder modelBuilder)
+protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         modelBuilder.Entity<TaskInstance>()
             .HasIndex(t => new { t.DueDate, t.Status });
-            
+
         modelBuilder.Entity<TaskInstance>()
             .HasIndex(t => t.TemplateId);
-            
+
+        modelBuilder.Entity<ChatMessage>()
+            .HasIndex(m => new { m.ConversationId, m.Timestamp });
+
+        modelBuilder.Entity<Conversation>()
+            .HasMany(c => c.Messages)
+            .WithOne(m => m.Conversation)
+            .HasForeignKey(m => m.ConversationId)
+            .OnDelete(DeleteBehavior.Cascade);
+
         // Setup initial default singleton settings
         modelBuilder.Entity<AppSettings>().HasData(new AppSettings
         {
