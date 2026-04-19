@@ -51,10 +51,10 @@ public class MessageService : IMessageService
 
     public async Task<IEnumerable<ChatMessage>> GetConversationMessagesAsync(int conversationId)
     {
-        return await _db.ChatMessages
+        var messages = await _db.ChatMessages
             .Where(m => m.ConversationId == conversationId)
-            .OrderBy(m => m.Timestamp)
             .ToListAsync();
+        return messages.OrderBy(m => m.Timestamp);
     }
 
     public async Task UpdateMessageAsync(int messageId, string newContent)

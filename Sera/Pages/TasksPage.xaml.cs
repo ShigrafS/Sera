@@ -55,7 +55,27 @@ public sealed partial class TasksPage : Page
         TasksList.ItemsSource = _tasks;
         ConversationsList.ItemsSource = _conversations;
 
-        _ = InitializeAsync();
+        Loaded += TasksPage_Loaded;
+    }
+
+    private async void TasksPage_Loaded(object sender, RoutedEventArgs e)
+    {
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("TasksPage_Loaded starting...");
+            System.Diagnostics.Debug.WriteLine("Calling LoadConversationsAsync...");
+            await LoadConversationsAsync();
+            System.Diagnostics.Debug.WriteLine("LoadConversationsAsync completed");
+            System.Diagnostics.Debug.WriteLine("Calling RefreshTasksAsync...");
+            await RefreshTasksAsync();
+            System.Diagnostics.Debug.WriteLine("RefreshTasksAsync completed");
+            System.Diagnostics.Debug.WriteLine("TasksPage initialized successfully");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Error initializing TasksPage: {ex}");
+            StatusLabel.Text = $"Error loading data: {ex.Message}";
+        }
     }
 
     private async Task InitializeAsync()
@@ -66,23 +86,36 @@ public sealed partial class TasksPage : Page
 
     private async Task LoadConversationsAsync()
     {
-        var conversations = await _db.Conversations
-            .OrderByDescending(c => c.UpdatedAt)
-            .ToListAsync();
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("LoadConversationsAsync: querying database...");
+            var conversations = await _db.Conversations
+                .ToListAsync();
 
-        _conversations.Clear();
-        foreach (var c in conversations)
-        {
-            _conversations.Add(c);
-        }
+            var sorted = conversations.OrderByDescending(c => c.UpdatedAt).ToList();
+            System.Diagnostics.Debug.WriteLine($"LoadConversationsAsync: found {sorted.Count} conversations");
 
-        if (_conversations.Any())
-        {
-            ConversationsList.SelectedIndex = 0;
+            _conversations.Clear();
+            foreach (var c in sorted)
+            {
+                _conversations.Add(c);
+            }
+
+            if (_conversations.Any())
+            {
+                System.Diagnostics.Debug.WriteLine("LoadConversationsAsync: setting SelectedIndex to 0");
+                ConversationsList.SelectedIndex = 0;
+            }
+            else
+            {
+                System.Diagnostics.Debug.WriteLine("LoadConversationsAsync: no conversations, creating new one");
+                await CreateNewConversationAsync();
+            }
         }
-        else
+        catch (Exception ex)
         {
-            await CreateNewConversationAsync();
+            System.Diagnostics.Debug.WriteLine($"LoadConversationsAsync error: {ex}");
+            throw;
         }
     }
 
@@ -228,39 +261,64 @@ public sealed partial class TasksPage : Page
         if (e.Key == Windows.System.VirtualKey.Enter)
         {
             e.Handled = true;
+            System.Diagnostics.Debug.WriteLine("Enter key pressed, calling ProcessInputAsync");
             _ = ProcessInputAsync();
         }
     }
 
     private void SendButton_Click(object sender, RoutedEventArgs e)
     {
-        _ = ProcessInputAsync();
+        try
+        {
+            System.Diagnostics.Debug.WriteLine("Send button clicked, calling ProcessInputAsync");
+            var task = ProcessInputAsync();
+            System.Diagnostics.Debug.WriteLine($"ProcessInputAsync task created: {task.Id}");
+        }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine($"Exception in SendButton_Click: {ex}");
+        }
     }
 
     private async Task ProcessInputAsync()
     {
         var input = ChatInputBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(input)) return;
+        System.Diagnostics.Debug.WriteLine($"ProcessInputAsync called with input: '{input}'");
+        
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            System.Diagnostics.Debug.WriteLine("Input is empty, returning");
+            return;
+        }
 
         if (_currentConversation == null)
         {
+            System.Diagnostics.Debug.WriteLine("_currentConversation is null, attempting to set...");
             if (ConversationsList.SelectedItem is Conversation conv)
             {
                 _currentConversation = conv;
+                System.Diagnostics.Debug.WriteLine($"Set _currentConversation from SelectedItem: {conv.Id}");
             }
             else if (_conversations.Any())
             {
                 _currentConversation = _conversations.First();
                 ConversationsList.SelectedItem = _currentConversation;
+                System.Diagnostics.Debug.WriteLine($"Set _currentConversation from _conversations.First(): {_currentConversation.Id}");
             }
             else
             {
+                System.Diagnostics.Debug.WriteLine("No conversations, creating new one...");
                 await CreateNewConversationAsync();
             }
         }
 
-        if (_currentConversation == null) return;
+        if (_currentConversation == null)
+        {
+            System.Diagnostics.Debug.WriteLine("_currentConversation is still null, returning");
+            return;
+        }
 
+        System.Diagnostics.Debug.WriteLine($"Proceeding with conversation {_currentConversation.Id}");
         SetUiLoading(true);
         ChatInputBox.Text = string.Empty;
 
@@ -290,11 +348,11 @@ public sealed partial class TasksPage : Page
 
         try
         {
-            var context = string.Join(", ", _tasks.Concat(_groupedTasks.SelectMany(g => g.Tasks)).Select(t => t.Title));
-            var history = await _db.ChatMessages
-                .Where(m => m.ConversationId == _currentConversation.Id)
-                .OrderBy(m => m.Timestamp)
-                .ToListAsync();
+        var context = string.Join(", ", _tasks.Concat(_groupedTasks.SelectMany(g => g.Tasks)).Select(t => t.Title));
+        var messages = await _db.ChatMessages
+            .Where(m => m.ConversationId == _currentConversation.Id)
+            .ToListAsync();
+        var history = messages.OrderBy(m => m.Timestamp).ToList();
 
             _streamingCts = new CancellationTokenSource();
             ActionList? finalResponse = null;
@@ -453,9 +511,14 @@ public sealed partial class TasksPage : Page
 
     private void SetUiLoading(bool isLoading)
     {
+        System.Diagnostics.Debug.WriteLine($"SetUiLoading called: {isLoading}");
         ChatInputBox.IsEnabled = !isLoading;
         SendButton.IsEnabled = !isLoading;
-        if (!isLoading) ChatInputBox.Focus(FocusState.Programmatic);
+        if (!isLoading) 
+        {
+            ChatInputBox.Focus(FocusState.Programmatic);
+            System.Diagnostics.Debug.WriteLine("Focus set to ChatInputBox");
+        }
     }
 
     public static HorizontalAlignment GetMessageAlignment(string role)

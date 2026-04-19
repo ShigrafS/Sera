@@ -46,16 +46,14 @@ public class ChatService : IChatService
 
     public async Task<Conversation?> GetCurrentConversationAsync()
     {
-        return await _db.Conversations
-            .OrderByDescending(c => c.UpdatedAt)
-            .FirstOrDefaultAsync();
+        var conversations = await _db.Conversations.ToListAsync();
+        return conversations.OrderByDescending(c => c.UpdatedAt).FirstOrDefault();
     }
 
     public async Task<IEnumerable<Conversation>> GetAllConversationsAsync()
     {
-        return await _db.Conversations
-            .OrderByDescending(c => c.UpdatedAt)
-            .ToListAsync();
+        var conversations = await _db.Conversations.ToListAsync();
+        return conversations.OrderByDescending(c => c.UpdatedAt);
     }
 
     public async Task DeleteConversationAsync(int conversationId)
