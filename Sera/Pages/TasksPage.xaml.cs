@@ -240,7 +240,26 @@ public sealed partial class TasksPage : Page
     private async Task ProcessInputAsync()
     {
         var input = ChatInputBox.Text.Trim();
-        if (string.IsNullOrWhiteSpace(input) || _currentConversation == null) return;
+        if (string.IsNullOrWhiteSpace(input)) return;
+
+        if (_currentConversation == null)
+        {
+            if (ConversationsList.SelectedItem is Conversation conv)
+            {
+                _currentConversation = conv;
+            }
+            else if (_conversations.Any())
+            {
+                _currentConversation = _conversations.First();
+                ConversationsList.SelectedItem = _currentConversation;
+            }
+            else
+            {
+                await CreateNewConversationAsync();
+            }
+        }
+
+        if (_currentConversation == null) return;
 
         SetUiLoading(true);
         ChatInputBox.Text = string.Empty;
