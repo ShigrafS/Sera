@@ -86,12 +86,7 @@
                 <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
 
-            <Button x:Name="NewConversationButton"
-                    Content="New Chat"
-                    Click="NewConversation_Click"
-                    Margin="12"
-                    HorizontalAlignment="Stretch"
-                    Style="{ThemeResource AccentButtonStyle}"/>
+
 
             <ListView x:Name="ConversationsList"
                       Grid.Row="1"

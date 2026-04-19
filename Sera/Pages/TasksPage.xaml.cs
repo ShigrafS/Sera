@@ -225,8 +225,9 @@ public sealed partial class TasksPage : Page
 
     private void ChatInputBox_KeyDown(object sender, KeyRoutedEventArgs e)
     {
-        if (e.Key == Windows.System.VirtualKey.Enter)
+        if (e.Key == Windows.System.VirtualKey.Enter && !e.KeyStatus.IsExtendedKey)
         {
+            e.Handled = true;
             _ = ProcessInputAsync();
         }
     }
