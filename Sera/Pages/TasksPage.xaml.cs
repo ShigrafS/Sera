@@ -53,7 +53,6 @@ public sealed partial class TasksPage : Page
         _executor = new ActionExecutor(_db);
 
         TasksList.ItemsSource = _tasks;
-        ConversationsList.ItemsSource = _conversations;
 
         Loaded += TasksPage_Loaded;
     }
@@ -103,8 +102,8 @@ public sealed partial class TasksPage : Page
 
             if (_conversations.Any())
             {
-                System.Diagnostics.Debug.WriteLine("LoadConversationsAsync: setting SelectedIndex to 0");
-                ConversationsList.SelectedIndex = 0;
+                System.Diagnostics.Debug.WriteLine("LoadConversationsAsync: loading most recent conversation");
+                await LoadConversationMessagesAsync(_conversations.First().Id);
             }
             else
             {
@@ -132,7 +131,27 @@ public sealed partial class TasksPage : Page
         await _db.SaveChangesAsync();
 
         _conversations.Insert(0, conversation);
-        ConversationsList.SelectedIndex = 0;
+
+        // Clear conversation history for new chat
+        ConversationHistory.Children.Clear();
+        _currentConversation = conversation;
+        ConversationTitle.Text = conversation.Title;
+
+        // Add welcome message
+        var welcomeBubble = new Border
+        {
+            Background = (Brush)Application.Current.Resources["SystemControlBackgroundBaseLowBrush"],
+            Padding = new Thickness(12),
+            CornerRadius = new CornerRadius(8),
+            HorizontalAlignment = HorizontalAlignment.Left,
+            Child = new TextBlock
+            {
+                Text = "Hello! I'm Sera. How can I help you manage your tasks today?",
+                TextWrapping = TextWrapping.Wrap,
+                MaxWidth = 280
+            }
+        };
+        ConversationHistory.Children.Add(welcomeBubble);
     }
 
     private async Task LoadConversationMessagesAsync(int conversationId)
@@ -241,19 +260,9 @@ public sealed partial class TasksPage : Page
         }
     }
 
-    private async void NewConversation_Click(object sender, RoutedEventArgs e)
+    public async void StartNewChat()
     {
         await CreateNewConversationAsync();
-    }
-
-    private async void ConversationsList_SelectionChanged(object sender, SelectionChangedEventArgs e)
-    {
-        if (ConversationsList.SelectedItem is Conversation conversation)
-        {
-            _currentConversation = conversation;
-            ConversationTitle.Text = conversation.Title;
-            await LoadConversationMessagesAsync(conversation.Id);
-        }
     }
 
     private void ChatInputBox_KeyDown(object sender, KeyRoutedEventArgs e)
@@ -294,15 +303,9 @@ public sealed partial class TasksPage : Page
         if (_currentConversation == null)
         {
             System.Diagnostics.Debug.WriteLine("_currentConversation is null, attempting to set...");
-            if (ConversationsList.SelectedItem is Conversation conv)
-            {
-                _currentConversation = conv;
-                System.Diagnostics.Debug.WriteLine($"Set _currentConversation from SelectedItem: {conv.Id}");
-            }
-            else if (_conversations.Any())
+            if (_conversations.Any())
             {
                 _currentConversation = _conversations.First();
-                ConversationsList.SelectedItem = _currentConversation;
                 System.Diagnostics.Debug.WriteLine($"Set _currentConversation from _conversations.First(): {_currentConversation.Id}");
             }
             else

@@ -57,6 +57,15 @@ public sealed partial class MainWindow : Window
             {
                 ContentFrame.Navigate(typeof(TasksPage));
             }
+            else if (tag == "newchat")
+            {
+                ContentFrame.Navigate(typeof(TasksPage));
+                // Trigger new chat after navigation
+                if (ContentFrame.Content is TasksPage tasksPage)
+                {
+                    tasksPage.StartNewChat();
+                }
+            }
         }
     }
 

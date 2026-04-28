@@ -16,6 +16,11 @@ Loaded="RootNavigationView_Loaded"
 OpenPaneLength="200"
 CompactPaneLength="48">
 <NavigationView.MenuItems>
+<NavigationViewItem Content="New Chat" Tag="newchat">
+<NavigationViewItem.Icon>
+<SymbolIcon Symbol="Add"/>
+</NavigationViewItem.Icon>
+</NavigationViewItem>
 <NavigationViewItem Content="Tasks" Tag="tasks">
 <NavigationViewItem.Icon>
 <SymbolIcon Symbol="List"/>
