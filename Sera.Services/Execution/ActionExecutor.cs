@@ -95,7 +95,8 @@ public class ActionExecutor : IActionExecutor
                             CreatedAt = DateTimeOffset.Now
                         };
                         _db.Templates.Add(template);
-                        
+                        await _db.SaveChangesAsync(); // Save to get the template ID
+
                         // We also create the first instance for today so the user sees it immediately
                         _db.Tasks.Add(new TaskInstance
                         {
@@ -103,7 +104,7 @@ public class ActionExecutor : IActionExecutor
                             DueDate = DateOnly.FromDateTime(DateTime.Now),
                             CreatedAt = DateTimeOffset.Now,
                             TemplateId = template.Id
-                        }); 
+                        });
                     }
                     break;
 

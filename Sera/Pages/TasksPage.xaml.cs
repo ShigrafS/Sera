@@ -534,6 +534,11 @@ public sealed partial class TasksPage : Page
         return status == Data.Entities.TaskStatus.Pending ? Visibility.Visible : Visibility.Collapsed;
     }
 
+    public static Visibility GetRecurringIndicatorVisibility(int? templateId)
+    {
+        return templateId.HasValue ? Visibility.Visible : Visibility.Collapsed;
+    }
+
     public static Windows.UI.Text.TextDecorations GetTextDecoration(Data.Entities.TaskStatus status)
     {
         return status == Data.Entities.TaskStatus.Completed ? Windows.UI.Text.TextDecorations.Strikethrough : Windows.UI.Text.TextDecorations.None;
