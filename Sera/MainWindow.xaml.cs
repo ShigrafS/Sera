@@ -1,10 +1,14 @@
 using System;
+using System.IO;
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Navigation;
 using Windows.Security.Credentials;
 using Sera.Pages;
+using WinRT.Interop;
+using Microsoft.UI;
+using Windows.Graphics;
 
 namespace Sera;
 
@@ -13,6 +17,30 @@ public sealed partial class MainWindow : Window
     public MainWindow()
     {
         this.InitializeComponent();
+
+        // Set window icon
+        SetWindowIcon();
+    }
+
+    private void SetWindowIcon()
+    {
+        try
+        {
+            var hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+            var windowId = Win32Interop.GetWindowIdFromWindow(hwnd);
+            var appWindow = Microsoft.UI.Windowing.AppWindow.GetFromWindowId(windowId);
+
+            // Set the window icon using the icon file path
+            var iconPath = Path.Combine(AppContext.BaseDirectory, "Assets", "AppIcon.ico");
+            if (File.Exists(iconPath))
+            {
+                appWindow.SetIcon(iconPath);
+            }
+        }
+        catch (Exception)
+        {
+            // If icon setting fails, continue without it
+        }
     }
 
     private void RootNavigationView_Loaded(object sender, RoutedEventArgs e)

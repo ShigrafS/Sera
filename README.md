@@ -4,7 +4,7 @@
 
 <div align="center">
 
-  <img src="https://raw.githubusercontent.com/ShigrafS/Sera/main/Sera/Assets/Logo.png" alt="Sera Logo" width="120">
+  <img src="Sera/Assets/Sera.jpg" alt="Sera Logo" width="120">
 
   <h3>Your intelligent, native companion for effortless task orchestration.</h3>
 
