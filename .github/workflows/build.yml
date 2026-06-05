@@ -2,9 +2,9 @@ name: Build and Release
 
 on:
   push:
-    branches: [ "main", "master" ]
+    branches:
+      - '**'
   pull_request:
-    branches: [ "main", "master" ]
   workflow_dispatch:
 
 jobs:
@@ -34,7 +34,7 @@ jobs:
           -c Release `
           -r win-x64 `
           --self-contained true `
-          -p:PublishSingleFile=false `
+          -p:PublishSingleFile=true `
           -p:PublishReadyToRun=true `
           -p:WindowsAppSDKSelfContained=true `
           -o ${{ github.workspace }}/publish
@@ -43,4 +43,4 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: Sera-AI-Secretary-win-x64
-        path: ${{ github.workspace }}/publish
+        path: ${{ github.workspace }}/publish/Sera.exe
