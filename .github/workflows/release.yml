@@ -29,21 +29,26 @@ jobs:
     - name: Restore dependencies
       run: dotnet restore Sera.sln
 
-    - name: Publish Sera (single-file)
+    - name: Publish Sera
       run: |
         dotnet publish Sera/Sera.csproj `
           -c Release `
           -r win-x64 `
           --self-contained true `
-          -p:PublishSingleFile=true `
+          -p:PublishSingleFile=false `
           -p:PublishReadyToRun=true `
           -p:WindowsAppSDKSelfContained=true `
           -o ${{ github.workspace }}/publish
 
+    - name: Zip Release Artifacts
+      shell: pwsh
+      run: |
+        Compress-Archive -Path ${{ github.workspace }}/publish/* -DestinationPath ${{ github.workspace }}/Sera-AI-Secretary-win-x64.zip
+
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
-        files: ${{ github.workspace }}/publish/Sera.exe
+        files: ${{ github.workspace }}/Sera-AI-Secretary-win-x64.zip
         draft: false
         prerelease: false
         generate_release_notes: true
